@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+     Copyright 2005-2015 Red Hat, Inc.
+
+     Red Hat licenses this file to you under the Apache License, version
+     2.0 (the "License"); you may not use this file except in compliance
+     with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+     implied.  See the License for the specific language governing
+     permissions and limitations under the License.
+
+-->
+<!-- Configures the Camel Context-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:camel="http://camel.apache.org/schema/spring"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="                        http://www.springframework.org/schema/beans                 http://www.springframework.org/schema/beans/spring-beans.xsd                      http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+   
+    <bean class="com.redhat.fis.dms.mockprocessor.OpportunityGenerator" id="opportunityGenerator"/>
+    <camelContext id="saleswithfile-context" xmlns="http://camel.apache.org/schema/spring">
+        <restConfiguration component="jetty" enableCORS="true" port="9191">
+            <corsHeaders key="Access-Control-Allow-Origin" value="*"/>
+            <corsHeaders key="Access-Control-Allow-Methods" value="GET"/>
+        </restConfiguration>
+        <rest path="/AutoDMS">
+            <get uri="/salesTracking">
+                <to uri="direct:getSales"/>
+            </get>
+        </rest>
+        
+        <route id="salesTracking">
+            <from  uri="direct:getSales"/>
+            <bean id="_bean1" method="getAllList" ref="opportunityGenerator"/>
+            <marshal id="marshal1jackson">
+                <json library="Jackson" prettyPrint="true"/>
+            </marshal>
+        </route>
+        
+        <route id="inputReport">
+            <from  uri="file:salesfolder"/>
+            <log id="_log1" message="${body}"/>
+            <split id="_split1">
+                <xpath>/opportunities/oppo</xpath>
+                <unmarshal id="_unmarshal1">
+                    <jaxb
+                        contextPath="com.redhat.fis.dms.model" id="oppojaxb" prettyPrint="true"/>
+                </unmarshal>
+                <bean id="_bean2" method="addOpportunity(${body})" ref="opportunityGenerator"/>
+            </split>
+        </route>
+        
+    </camelContext>
+</beans>
